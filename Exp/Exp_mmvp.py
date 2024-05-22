@@ -7,7 +7,6 @@ import pickle
 import logging
 import numpy as np
 import sys
-sys.path.append('/data01/dyf/CaPaint')
 from models.mmvp_model import MMVP_Model
 from omegaconf import OmegaConf
 from tqdm import tqdm
