@@ -5,7 +5,6 @@ import torch.nn.functional as F
 class ResidualDenseBlock_4C(nn.Module):
     def __init__(self, nf=64, gc = 32, bias=True):
         super(ResidualDenseBlock_4C, self).__init__()
-        # gc: growth channel, i.e. intermediate channels
 
         self.conv1 = nn.Conv2d(nf, gc, 3, 1, 1, bias=bias)
         self.conv2 = nn.Conv2d(nf + gc, gc, 3, 1, 1, bias=bias)
@@ -13,8 +12,6 @@ class ResidualDenseBlock_4C(nn.Module):
         self.conv4 = nn.Conv2d(nf + 3 * gc, nf, 3, 1, 1, bias=bias)
         self.lrelu = nn.LeakyReLU(negative_slope=0.2, inplace=True)
 
-        # initialization
-        # mutil.initialize_weights([self.conv1, self.conv2, self.conv3, self.conv4, self.conv5], 0.1)
 
     def forward(self, x):
         x1 = self.lrelu(self.conv1(x))
@@ -24,7 +21,6 @@ class ResidualDenseBlock_4C(nn.Module):
         return x4 * 0.2 + x
 
 class RRDB(nn.Module):
-    '''Residual in Residual Dense Block'''
 
     def __init__(self, nf):
         super(RRDB, self).__init__()
@@ -42,12 +38,10 @@ class RRDB(nn.Module):
 
 
 class Up(nn.Module):
-    """Upscaling then double conv"""
 
     def __init__(self, in_channels, out_channels, bilinear=True, skip=True, scale=2, bn=True, motion=False):
         super().__init__()
         factor = scale
-        # if bilinear, use the normal convolutions to reduce the number of channels
         if bilinear:
             if skip:
                 self.up = nn.Upsample(scale_factor=factor, mode='bilinear', align_corners=True)
@@ -69,15 +63,11 @@ class Up(nn.Module):
         x1 = self.up(x1)
         if x2 is None:
             return self.conv(x1)
-        # input is CHW
         diffY = x2.size()[2] - x1.size()[2]
         diffX = x2.size()[3] - x1.size()[3]
 
         x1 = F.pad(x1, [diffX // 2, diffX - diffX // 2,
                         diffY // 2, diffY - diffY // 2])
-        # if you have padding issues, see
-        # https://github.com/HaiyongJiang/U-Net-Pytorch-Unstructured-Buggy/commit/0e854509c2cea854e247a9c615f175f76fbb2e3a
-        # https://github.com/xiaopeng-liao/Pytorch-UNet/commit/8ebac70e633bac59fc22bb5195e513d5832fb3bd
         x = torch.cat([x2, x1], dim=1)
         return self.conv(x) 
 
@@ -125,7 +115,6 @@ class ResBlock(nn.Module):
         return nn.LeakyReLU()(input)
 
 class ConvLayer(nn.Module):
-    """(convolution => [BN] => ReLU) * 2"""
 
     def __init__(self, in_channels, out_channels, mid_channels=None, bn=True, motion=False, dilation=1):
         super().__init__()
@@ -152,7 +141,6 @@ class Conv3D(nn.Module):
         self.bn3d = nn.BatchNorm3d(out_channel)
 
     def forward(self, x):
-        # input x: (batch, seq, c, h, w)
         x = x.permute(0, 2, 1, 3, 4).contiguous()  # (batch, c, seq_len, h, w)
         x = F.leaky_relu(self.bn3d(self.conv3d(x))) 
         x = x.permute(0, 2, 1, 3, 4).contiguous()  # (batch, seq_len, c, h, w)
@@ -185,29 +173,27 @@ class MatrixPredictor3DConv(nn.Module):
             
         
     def forward(self,x):
-        # x [B,T,C,32,32]
-        # out: [B,C,32,32]
         batch, seq, z, h, w = x.size()
         x = x.reshape(-1, x.size(-3), x.size(-2), x.size(-1))
         x = F.leaky_relu(self.bn_pre_1(self.conv_pre_1(x))) 
         x = F.leaky_relu(self.bn_pre_2(self.conv_pre_2(x))) 
         x_1 = F.leaky_relu(self.bn1_1(self.conv1_1(x))) 
         
-        x_1 = x_1.view(batch, -1, x_1.size(1), x_1.size(2), x_1.size(3)).contiguous()  # (batch, seq, c, h, w)
-        x_1 = self.conv3d_1(x_1) #  (batch, seq, c, h, w), 1st temporal conv
-        x_1 = x_1.view(-1, x_1.size(2), x_1.size(3), x_1.size(4)).contiguous()  # (batch * seq, c, h, w)
-        x_2 = F.leaky_relu(self.bn2_1(self.conv2_1(x_1)))    # (batch * seq, c, h // 2, w // 2)
-        x_2 = x_2.view(batch, -1, x_2.size(1), x_2.size(2), x_2.size(3)).contiguous()  # (batch, seq, c, h, w)
-        x_2 = self.conv3d_2(x_2) # (batch, seq=1, c, h // 2, w // 2), 2nd temporal conv
-        x_2 = x_2.view(-1, x_2.size(2), x_2.size(3), x_2.size(4)).contiguous()  # (batch * seq, c, h//2, w//2), seq = 1
+        x_1 = x_1.view(batch, -1, x_1.size(1), x_1.size(2), x_1.size(3)).contiguous() 
+        x_1 = self.conv3d_1(x_1) 
+        x_1 = x_1.view(-1, x_1.size(2), x_1.size(3), x_1.size(4)).contiguous()
+        x_2 = F.leaky_relu(self.bn2_1(self.conv2_1(x_1)))
+        x_2 = x_2.view(batch, -1, x_2.size(1), x_2.size(2), x_2.size(3)).contiguous()
+        x_2 = self.conv3d_2(x_2)
+        x_2 = x_2.view(-1, x_2.size(2), x_2.size(3), x_2.size(4)).contiguous()
         
-        x_1 = x_1.view(batch, -1, x_1.size(1), x_1.size(2), x_1.size(3)) # (batch, seq, c, h, w)
-        x_1 = x_1.permute(0, 2, 1, 3, 4).contiguous() # (batch, c, seq, h, w)                                           
-        x_1 = F.adaptive_max_pool3d(x_1, (1, None, None)) # (batch, c, 1, h, w)
-        x_1 = x_1.permute(0, 2, 1, 3, 4).contiguous() # (batch, 1, c, h, w)
-        x_1 = x_1.view(-1, x_1.size(2), x_1.size(3), x_1.size(4)).contiguous() # (batch*1, c, h, w)
+        x_1 = x_1.view(batch, -1, x_1.size(1), x_1.size(2), x_1.size(3))
+        x_1 = x_1.permute(0, 2, 1, 3, 4).contiguous()                                          
+        x_1 = F.adaptive_max_pool3d(x_1, (1, None, None))
+        x_1 = x_1.permute(0, 2, 1, 3, 4).contiguous()
+        x_1 = x_1.view(-1, x_1.size(2), x_1.size(3), x_1.size(4)).contiguous() 
         x_3 = F.leaky_relu(self.bn3_1(self.conv3_1(torch.cat((F.interpolate(x_2, scale_factor=(2, 2)), x_1), dim=1)))) 
-        x = x.view(batch, -1, x.size(1), x.size(2), x.size(3)) # (batch, seq, 1, h, w)
+        x = x.view(batch, -1, x.size(1), x.size(2), x.size(3)) 
         x = F.leaky_relu(self.bn4_1(self.conv4_1(F.interpolate(x_3, scale_factor=(2, 2)))))         
         return x
     
@@ -250,38 +236,36 @@ class SimpleMatrixPredictor3DConv_direct(nn.Module):
             
         
     def forward(self,x):
-        # x [B,T,C,32,32]
-        # out: [B,C,32,32]
         batch, seq, z, h, w = x.size()
         x = x.reshape(-1, x.size(-3), x.size(-2), x.size(-1))
         x = F.leaky_relu(self.bn_pre_1(self.conv_pre_1(x))) 
         x = F.leaky_relu(self.bn_pre_2(self.conv_pre_2(x))) 
         x_1 = F.leaky_relu(self.bn1_1(self.conv1_1(x))) 
         
-        x_1 = x_1.view(batch, -1, x_1.size(1), x_1.size(2), x_1.size(3)).contiguous()  # (batch, seq, c, h, w)
+        x_1 = x_1.view(batch, -1, x_1.size(1), x_1.size(2), x_1.size(3)).contiguous()
         
-        x_1 = self.conv3d_1(x_1) #  (batch, seq, c, h, w), 1st temporal conv
+        x_1 = self.conv3d_1(x_1)
         batch, seq, c, h, w = x_1.shape
         x_tmp = x_1.reshape(batch,-1,h,w)
         x_tmp = self.bn_translate(self.conv_translate(x_tmp)) 
         x_1 = x_tmp.reshape(batch,self.fut_len,c,h,w)
-        x_1 = x_1.view(-1, x_1.size(2), x_1.size(3), x_1.size(4)).contiguous()  # (batch * seq, c, h, w)
-        x_2 = F.leaky_relu(self.bn2_1(self.conv2_1(x_1))) # (batch * seq, c, h // 2, w // 2)
+        x_1 = x_1.view(-1, x_1.size(2), x_1.size(3), x_1.size(4)).contiguous()
+        x_2 = F.leaky_relu(self.bn2_1(self.conv2_1(x_1)))
         if self.fut_len > 1:
-            x_2 = x_2.view(batch, -1, x_2.size(1), x_2.size(2), x_2.size(3)).contiguous()  # (batch, seq, c, h, w)
-            x_2 = self.temporal_layer(x_2) # (batch, seq=10, c, h // 2, w // 2)
+            x_2 = x_2.view(batch, -1, x_2.size(1), x_2.size(2), x_2.size(3)).contiguous() 
+            x_2 = self.temporal_layer(x_2)
         
-            x_2 = x_2.view(-1, x_2.size(2), x_2.size(3), x_2.size(4)).contiguous()  # (batch * seq, c, h//2, w//2), seq = 1
+            x_2 = x_2.view(-1, x_2.size(2), x_2.size(3), x_2.size(4)).contiguous() 
         else:
-            x_2 = self.temporal_layer(x_2) # (batch * seq,c, h // 2, w // 2)
+            x_2 = self.temporal_layer(x_2)
 
-        x_1 = x_1.view(batch, -1, x_1.size(1), x_1.size(2), x_1.size(3)) # (batch, seq, c, h, w)
+        x_1 = x_1.view(batch, -1, x_1.size(1), x_1.size(2), x_1.size(3))
         
         x_1 = x_1.reshape(-1, x_1.size(2), x_1.size(3), x_1.size(4))
 
 
         x_3 = F.leaky_relu(self.bn3_1(self.conv3_1(torch.cat((F.interpolate(x_2, size=x_1.shape[2:]), x_1), dim=1))))
-        x = x.view(batch, -1, x.size(1), x.size(2), x.size(3)) # (batch, seq, 1, h, w)
+        x = x.view(batch, -1, x.size(1), x.size(2), x.size(3))
         x = F.leaky_relu(self.bn4_1(self.conv4_1(F.interpolate(x_3, size = x.shape[3:])))) 
         
         return x
@@ -304,12 +288,7 @@ class PredictModel(nn.Module):
         self.sigmoid = nn.Sigmoid()
 
     def res_interpolate(self,in_tensor,template_tensor):
-        '''
-        in_tensor: batch,c,h'w',H'W'
-        tempolate_tensor: batch,c,hw,HW
-        out_tensor: batch,c,hw,HW
-        '''
-        out_tensor = F.interpolate(in_tensor,template_tensor.shape[-2:]) # (BThw,target_h,target_w)
+        out_tensor = F.interpolate(in_tensor,template_tensor.shape[-2:])
 
         return out_tensor
 
@@ -317,8 +296,8 @@ class PredictModel(nn.Module):
 
         B,T,hw,window_size = matrix_seq.size()
 
-        matrix_seq = matrix_seq.reshape(-1,hw,self.mx_h,self.mx_w) # (BT,hw,hw)
-        matrix_seq = matrix_seq.reshape(B*T*hw,self.mx_h,self.mx_w).unsqueeze(1) # (BThw,1,h,w)
+        matrix_seq = matrix_seq.reshape(-1,hw,self.mx_h,self.mx_w)
+        matrix_seq = matrix_seq.reshape(B*T*hw,self.mx_h,self.mx_w).unsqueeze(1)
 
         x = self.conv1(matrix_seq)
         x = x.reshape(B,T,hw,-1,self.mx_h,self.mx_w)
@@ -335,7 +314,7 @@ class PredictModel(nn.Module):
             
             emb = self.fuse_conv(torch.cat([emb,res_tensor],dim=1))
 
-        out = self.out_conv(emb) #(Bhwt,16,h//4,w//4)
+        out = self.out_conv(emb)
         
         out = out.reshape(B,hw,-1,self.mx_h,self.mx_w)
         out = out.permute(0,2,1,3,4)
