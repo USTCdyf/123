@@ -7,7 +7,6 @@ import pickle
 import logging
 import numpy as np
 import sys
-sys.path.append('/data01/dyf/CaPaint')
 from models.vit_model import VisionTransformer
 from omegaconf import OmegaConf
 from tqdm import tqdm
