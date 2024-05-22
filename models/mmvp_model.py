@@ -6,16 +6,9 @@ from mmvp_modules import RRDB, ResBlock, Up, PredictModel
 from mmvp_utils import build_similarity_matrix, sim_matrix_interpolate, sim_matrix_postprocess, cum_multiply
 
 class MMVP_Model(nn.Module):
-    r"""MMVP
-
-    Implementation of `MMVP: Motion-Matrix-based Video Prediction
-    <https://arxiv.org/abs/2308.16154>`_.
-
-    """ 
-
     def __init__(self, in_shape, aft_seq_length=10,
                  hid_S=16, hid_T=32,
-                 rrdb_encoder_num=1, rrdb_decoder_num=1,# 2 -> 1
+                 rrdb_encoder_num=1, rrdb_decoder_num=1,
                  rrdb_enhance_num=1, downsample_setting='2,2,2',
                  shuffle_setting=True, use_direct_predictor=True,
                  **kwargs):
@@ -53,26 +46,21 @@ class MMVP_Model(nn.Module):
         x_raw = self.unshuffle(x_raw)
         x = x_raw.clone()
         x_wh = x.shape[-2:]
-        # encoder
-        fi = self.enc(x)  #N, C, H, W
+        fi = self.enc(x) 
 
-        #record fi shape for later decoder
         feat_shape = []    
         for i in range(len(fi)):
             if fi[i] is None:
                 feat_shape.append(None)
             else:
                 feat_shape.append(fi[i].shape[2:])
-        #filter block
+
         gi = self.filter(fi)
 
-        #construct and predict similarity matrix
         similarity_matrix = self.hid(gi, B, T)
 
-        # compose motion matrix and embed feature
         composed_fut_feat = self.fuse(fi, similarity_matrix, feat_shape)
 
-        #decoder feature
         recon_img = self.dec(composed_fut_feat)
         final_recon_img = recon_img.clone()
 
@@ -217,7 +205,6 @@ class MidMotionMatrix(nn.Module):
         similar_matrix = []
         prev_sim_matrix = []
         pred_sim_matrix = [None, None]
-        # construct similarity matrix
         for i in [-2, -1]:
             N = x[i].shape[0]
             h, w = x[i].shape[2:]
@@ -227,11 +214,9 @@ class MidMotionMatrix(nn.Module):
         pred_fut_matrix, _ = self.predictor(prev_sim_matrix[0], softmax=False, res=None)
         pred_sim_matrix[0] = pred_fut_matrix.clone()
         pred_sim_matrix[1] = sim_matrix_interpolate(pred_fut_matrix.clone(), self.mat_size[0], self.mat_size[1])
-        # post process the matrix
         pred_sim_matrix[0] = sim_matrix_postprocess(pred_sim_matrix[0])
         pred_sim_matrix[1] = sim_matrix_postprocess(pred_sim_matrix[1])
 
-        #update similarity matrix list
         for i in range(len(prev_sim_matrix)):
             new_cur_sim_matrix = torch.cat([sim_matrix_postprocess(prev_sim_matrix[i]), pred_sim_matrix[i]], dim=1)
             similar_matrix.append(new_cur_sim_matrix)
@@ -258,22 +243,15 @@ class Compose(nn.Module):
         self.feat_unshuffle = nn.ModuleList(self.feat_unshuffle)
 
     def feat_generator(self, feats, sim_matrix, feat_idx, img_compose=False, scale=1):
-        '''
-
-        :param feats: [B,T,c,h,w]
-        :param sim_matrix: [B,T,h*w,h*w]
-        :return: new_feats: [B,c,h,w]
-        '''
         B, T, c, h, w = feats.shape
-        # only test single motion
-        if scale > 1: # if hw_cur != hw_target, only use the last sim matrix
+        if scale > 1: 
             feats = feats[:,-1:,]
             sim_matrix = sim_matrix[:,-1:]
             T = 1
-        feats = feats.permute(0, 2, 1, 3, 4)  # (B,c,T,h,w)
-        feats = feats.reshape(B, c, T * h * w).permute(0, 2, 1)  # (B,Prev T*h*w,c)
+        feats = feats.permute(0, 2, 1, 3, 4) 
+        feats = feats.reshape(B, c, T * h * w).permute(0, 2, 1) 
         B,T,hw_cur,hw_target = sim_matrix.shape
-        sim_matrix = sim_matrix.reshape(B, T * hw_cur, hw_target).permute(0, 2, 1) # Batch, fut H*W, Prev T*HW
+        sim_matrix = sim_matrix.reshape(B, T * hw_cur, hw_target).permute(0, 2, 1) 
         weight = torch.sum(sim_matrix, dim=-1).reshape(-1, 1, hw_target) + 1e-6
         new_feats = torch.bmm(sim_matrix, feats).permute(0, 2, 1) / weight
         new_feats = new_feats.reshape(B, c, h*scale, w*scale)
@@ -281,13 +259,6 @@ class Compose(nn.Module):
         return new_feats
 
     def feat_compose(self, emb_feat_list, sim_matrix, img_compose=False, scale=1, use_gt=False):
-        '''
-
-        :param emb_feat_list: (scale_num, (B,T,c,h,w))
-        :param sim_matrix:  (B,T-1,h,w,h,w)
-        :param use_gt_sim_matrix: bool
-        :return: fut_emb_feat_list (scale_num, (B,t,c,h,w))
-        '''
         fut_emb_feat_list = []
         ori_emb_feat_list = []
         for i in range(len(emb_feat_list)):
@@ -314,12 +285,11 @@ class Compose(nn.Module):
                     fut_t_matrix = sim_matrix_seq[:,(self.prev_len-1):(self.prev_len+t)]
                 active_matrix_seq = torch.cat([active_matrix_seq,fut_t_matrix],dim=1)
             
-                cur_sim_matrix = cum_multiply(active_matrix_seq.clone())  # B, T+1, h,w,h,w
+                cur_sim_matrix = cum_multiply(active_matrix_seq.clone()) 
                 composed_t_feats = self.feat_generator(cur_emb_feat[:, :self.prev_len].clone(),
                                                         cur_sim_matrix,feat_idx=i,img_compose=img_compose,scale=scale)
                                                     
                 fut_emb_feat_list[i].append(composed_t_feats.clone())
-                # update future frame features in the emb_feat_list
                 if (not use_gt):
                     if scale == 1:
                         if  cur_emb_feat.shape[1] > self.prev_len+t:
@@ -329,7 +299,7 @@ class Compose(nn.Module):
 
             temp = torch.stack(fut_emb_feat_list[i], dim=1)
             
-            fut_emb_feat_list[i] = temp.reshape(-1, c, h*scale, w*scale) # B*T,c,h,w
+            fut_emb_feat_list[i] = temp.reshape(-1, c, h*scale, w*scale)
 
         return fut_emb_feat_list,ori_emb_feat_list
 
@@ -427,9 +397,5 @@ class ImageEnhancer(nn.Module):
         feat = self.model(x)
         out = self.outconv(feat)
         return out
-
-
-
-
 
 
