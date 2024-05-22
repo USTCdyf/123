@@ -295,7 +295,7 @@ class Compose(nn.Module):
                         if  cur_emb_feat.shape[1] > self.prev_len+t:
                             cur_emb_feat[:,t+self.prev_len] = composed_t_feats.clone()
                         else:
-                            cur_emb_feat = torch.cat([cur_emb_feat,composed_t_feats.clone().unsqueeze(1)],dim=1) #cat compose features for next frame prediction
+                            cur_emb_feat = torch.cat([cur_emb_feat,composed_t_feats.clone().unsqueeze(1)],dim=1) 
 
             temp = torch.stack(fut_emb_feat_list[i], dim=1)
             
