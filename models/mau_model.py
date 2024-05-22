@@ -9,7 +9,6 @@ class MAUCell(nn.Module):
         super(MAUCell, self).__init__()
 
         self.num_hidden = num_hidden
-        # self.padding = (filter_size[0] // 2, filter_size[1] // 2)
         self.padding = filter_size // 2
         self.cell_mode = cell_mode
         self.d = num_hidden * height * width
@@ -68,13 +67,6 @@ class MAUCell(nn.Module):
 
 
 class MAU_Model(nn.Module):
-    r"""MAU Model
-
-    Implementation of `MAU: A Motion-Aware Unit for Video Prediction and Beyond
-    <https://openreview.net/forum?id=qwtfY-3ibt7>`_.
-
-    """
-
     def __init__(self, num_layers, num_hidden, configs, **kwargs):
         super(MAU_Model, self).__init__()
         T, C, H, W = configs.in_shape
@@ -102,7 +94,6 @@ class MAU_Model(nn.Module):
             )
         self.cell_list = nn.ModuleList(cell_list)
 
-        # Encoder
         n = int(math.log2(configs.sr_size))
         encoders = []
         encoder = nn.Sequential()
@@ -129,7 +120,6 @@ class MAU_Model(nn.Module):
             encoders.append(encoder)
         self.encoders = nn.ModuleList(encoders)
 
-        # Decoder
         decoders = []
 
         for i in range(n - 1):
@@ -168,7 +158,6 @@ class MAU_Model(nn.Module):
             self.frame_channel * 2, self.frame_channel, kernel_size=1, stride=1, padding=0)
 
     def forward(self, frames_tensor, mask_true, **kwargs):
-        # [batch, length, height, width, channel] -> [batch, length, channel, height, width]
         device = frames_tensor.device
         frames = frames_tensor.permute(0, 1, 2, 3, 4).contiguous()
         mask_true = mask_true.permute(0, 1, 2, 3, 4).contiguous()
@@ -232,7 +221,6 @@ class MAU_Model(nn.Module):
             x_gen = self.srcnn(out)
             next_frames.append(x_gen)
         
-        # [length, batch, channel, height, width] -> [batch, length, height, width, channel]
         next_frames = torch.stack(next_frames, dim=0).permute(1, 0, 2, 3, 4).contiguous()
         if kwargs.get('return_loss', True):
             loss = self.MSE_criterion(next_frames, frames[:, 1:])
