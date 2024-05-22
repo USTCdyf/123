@@ -7,7 +7,6 @@ import pickle
 import logging
 import numpy as np
 import sys
-sys.path.append('/data01/dyf/CaPaint')
 from models.nvwa_simvp_model import Nvwa_enchane_SimVP
 from tqdm import tqdm
 from API import *
