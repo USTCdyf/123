@@ -1,10 +1,7 @@
-###### Convolutional LSTM ##########
-# Shi, Xingjian et al. Convolutional LSTM network: A machine learning approach for precipitation nowcasting, NeurIPS 2015.
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
-    
     
 class ConvLSTMCell(nn.Module):
 
@@ -56,7 +53,6 @@ class ConvLSTM(nn.Module):
 
         self._check_kernel_size_consistency(kernel_size)
 
-        # Make sure that both `kernel_size` and `hidden_dim` are lists having len == num_layers
         kernel_size = self._extend_for_multilayer(kernel_size, num_layers)
         hidden_dim  = self._extend_for_multilayer(hidden_dim, num_layers)
         if not len(kernel_size) == len(hidden_dim) == num_layers:
@@ -86,10 +82,8 @@ class ConvLSTM(nn.Module):
 
     def forward(self, input_tensor, hidden_state=None):
         if not self.batch_first:
-            # (t, b, c, h, w) -> (b, t, c, h, w)
             input_tensor = input_tensor.permute(1, 0, 2, 3, 4)
 
-        # Implement stateful ConvLSTM
         if hidden_state is not None:
             raise NotImplementedError()
         else:
