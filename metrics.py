@@ -5,9 +5,9 @@ import torch
 def measurement_metrics(model, dataset):
     name = model + '_' + dataset
     name_with_mask = model + '_mask_' + dataset
-    data1 = np.load('/data01/dyf/CausaST3/output/'+name+'/Debug/results/Debug/sv/preds.npy') 
+    data1 = np.load('/output/'+name+'/Debug/results/Debug/sv/preds.npy') 
     print(data1.shape)
-    data2 = np.load('/data01/dyf/CausaST3/output/'+name+'/Debug/results/Debug/sv/trues.npy') 
+    data2 = np.load('/output/'+name+'/Debug/results/Debug/sv/trues.npy') 
     print(data2.shape)
 
     preds = data1
@@ -31,19 +31,15 @@ def measurement_metrics(model, dataset):
             mses.append(mse)
             ssims.append(ssim_value)
 
-    print("不加mask")
     mae_result1 = np.mean(maes)
-    print("所有图像的平均 MAE:", np.mean(maes))
     mse_result1 = np.mean(mses)
-    print("所有图像的平均 MSE:", np.mean(mses))
     ssim_result1 = np.mean(ssims)
-    print('所有图像对的平均 SSIM:', np.mean(ssims))
 
 
 
-    data1 = np.load('/data01/dyf/CausaST3/output/'+name_with_mask+'/Debug/results/Debug/sv/preds.npy') 
+    data1 = np.load('/output/'+name_with_mask+'/Debug/results/Debug/sv/preds.npy') 
     print(data1.shape)
-    data2 = np.load('/data01/dyf/CausaST3/output/'+name_with_mask+'/Debug/results/Debug/sv/trues.npy') 
+    data2 = np.load('/output/'+name_with_mask+'/Debug/results/Debug/sv/trues.npy') 
     print(data2.shape)
 
     preds = data1
@@ -66,16 +62,11 @@ def measurement_metrics(model, dataset):
             mses.append(mse)
             ssims.append(ssim_value)
 
-    print("加mask")
     mae_result2 = np.mean(maes)
-    print("所有图像的平均 MAE:", np.mean(maes))
     mse_result2 = np.mean(mses)
-    print("所有图像的平均 MSE:", np.mean(mses))
     ssim_result2 = np.mean(ssims)
-    print('所有图像对的平均 SSIM:', np.mean(ssims))
     mae_rate = (mae_result1 - mae_result2)*100/mae_result1
     mse_rate = (mse_result1 - mse_result2)*100/mse_result1
     ssim_rate = (ssim_result2 - ssim_result1)*100/ssim_result2
-    print('SSIM提升:', (ssim_result2 - ssim_result1)*100/ssim_result2)
 
     return mae_rate, mse_rate, ssim_rate, ssim_result2, ssim_result1
