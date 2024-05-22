@@ -81,7 +81,7 @@ class Encoder(nn.Module):
             *[ConvSC(C_hid, C_hid, stride=s) for s in strides[1:]]
         )
     
-    def forward(self,x):# B*4, 3, 128, 128
+    def forward(self,x):
         enc1 = self.enc[0](x)
         latent = enc1
         for i in range(1,len(self.enc)):
@@ -128,7 +128,6 @@ class Mid_Xnet(nn.Module):
         B, T, C, H, W = x.shape
         x = x.reshape(B, T*C, H, W)
 
-        # encoder
         skips = []
         z = x
         for i in range(self.N_T):
@@ -136,7 +135,6 @@ class Mid_Xnet(nn.Module):
             if i < self.N_T - 1:
                 skips.append(z)
 
-        # decoder
         z = self.dec[0](z)
         for i in range(1, self.N_T):
             z = self.dec[i](torch.cat([z, skips[-i]], dim=1))
