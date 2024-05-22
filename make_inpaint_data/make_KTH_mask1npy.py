@@ -3,7 +3,6 @@ import numpy as np
 import os
 
 folder_path = './KTH_inpaint_mask1/'
-# folder_names = [f for f in sorted(os.listdir(folder_path))]
 
 def extract_number(folder_name):
     return int(''.join(filter(str.isdigit, folder_name)))
