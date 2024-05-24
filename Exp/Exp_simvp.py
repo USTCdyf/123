@@ -6,7 +6,7 @@ import pickle
 import logging
 import numpy as np
 import sys
-from models.nvwa_simvp_model import SimVP
+from models.simvp_model import SimVP
 from tqdm import tqdm
 from API import *
 from utils import *
