@@ -1,4 +1,3 @@
-
 import os
 import os.path as osp
 import json
@@ -7,7 +6,7 @@ import pickle
 import logging
 import numpy as np
 import sys
-from models.nvwa_simvp_model import Nvwa_enchane_SimVP
+from models.nvwa_simvp_model import SimVP
 from tqdm import tqdm
 from API import *
 from utils import *
@@ -58,7 +57,7 @@ class Exp:
 
     def _build_model(self):
         args = self.args
-        self.model = Nvwa_enchane_SimVP(tuple(args.in_shape), args.hid_S,
+        self.model = SimVP(tuple(args.in_shape), args.hid_S,
                            args.hid_T, args.N_S, args.N_T).to(self.device)
 
     def _get_data(self):
