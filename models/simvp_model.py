@@ -143,9 +143,9 @@ class Mid_Xnet(nn.Module):
         return y
 
 
-class Nvwa_enchane_SimVP(nn.Module):
+class SimVP(nn.Module):
     def __init__(self, shape_in, hid_S=16, hid_T=256, N_S=4, N_T=8, incep_ker=[3,5,7,11], groups=8):
-        super(Nvwa_enchane_SimVP, self).__init__()
+        super(SimVP, self).__init__()
         T, C, H, W = shape_in
         self.enc = Encoder(C, hid_S, N_S)
         self.hid = Mid_Xnet(T*hid_S, hid_T, N_T, incep_ker, groups)
@@ -169,7 +169,7 @@ class Nvwa_enchane_SimVP(nn.Module):
 
 
 if __name__ == "__main__":
-    model = Nvwa_enchane_SimVP((10, 1, 64, 64))
+    model = SimVP((10, 1, 64, 64))
     inputs = torch.rand(10, 10, 1, 64, 64)
     outputs = model(inputs)
     print(outputs.shape)
